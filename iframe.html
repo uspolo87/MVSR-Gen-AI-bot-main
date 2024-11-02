@@ -1,0 +1,210 @@
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Vertex AI</title>
+  <!-- <script src="script.js,l/"></script> -->
+  <meta content="minimum-scale=1.0, width=device-width, maximum-scale=1.0, user-scalable=no" name="viewport" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div class="chat-container">
+    <div class="welcom-screen">
+      <img src="assets/sarah.svg" alt="sarah Hash include chatbot" class="bot-img ">
+      <div class="hide-on">
+        <p>
+          Hi, I’m <span class="sarah">sarah.</span>
+        </p>
+        <p>Your bot Assistant</p>
+        <p class="powered-by">Powered By <span class="gemini">Gemini <img src="assets/gemini.svg" alt="gemini image"
+              class="gemini"></span>
+        </p>
+      </div>
+
+    </div>
+    <div class="preview-screen">
+      <div class="middle">
+
+
+      </div>
+    </div>
+
+    <div class="responses-block" id="response-block">
+      <!-- <img src="assets/chat-icon.svg" alt="#include bot" class="img-fluid chatbot-icon"> -->
+    </div>
+
+  </div>
+
+  <div class="bottom">
+    <form>
+      <input type="text" id="prompt" placeholder="Ask me anything...">
+      <button class="response-submit" type="submit" id="send"> <img src="assets/chat-send.svg" alt="chat send"
+          class="chat-send"></button>
+
+    </form>
+  </div>
+  </div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+    import { getFirestore, doc, getDocs, addDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+    import {
+      getVertexAI,
+      getGenerativeModel, HarmBlockThreshold, HarmCategory
+    } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-vertexai-preview.js";
+    import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/10.12.1/firebase-app-check.js';
+    import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+
+    var trainingData = "";
+    var prompts = {
+      first_suggestion: 'Available Courses in Hash Include',
+      second_suggestion: 'Give me all the details about data analytics course'
+    }
+
+    var userInteractions = [];
+    var count = 0;
+
+    var safetySettings = [
+      {
+        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+      },
+
+
+      {
+        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+      },
+
+    ]
+
+    var firebaseConfig = {
+      name: "workshop app",
+      options: {},
+      automaticDataCollectionEnabled: true,
+      apiKey: "AIzaSyBxRN3BC9F25-S8Ow0Fxj3iXI9RiLi9pvc",
+      authDomain: "mvsr-7e517.firebaseapp.com",
+      projectId: "mvsr-7e517",
+      storageBucket: "mvsr-7e517.firebasestorage.app",
+      messagingSenderId: "415060374469",
+      appId: "1:415060374469:web:f3b61a18b83d393969d1ac"
+    };
+    const firebaseApp = initializeApp(firebaseConfig);
+    const db = getFirestore(firebaseApp);
+    const vertexAI = getVertexAI(firebaseApp);
+    var model;
+
+    if (db) {
+      getTrainingData();
+    }
+
+    async function getTrainingData() {
+      trainingData = ``;
+      model = getGenerativeModel(vertexAI, {
+        model: "gemini-1.0-pro-002",
+        systemInstruction: trainingData,
+        safetySettings
+      });
+    }
+
+
+
+    document.getElementById("send").addEventListener("click", function (e) {
+      e.preventDefault();
+      let prompt = document.getElementById("prompt");
+      if (prompt?.value) {
+        getModelResponse(prompt?.value);
+        prompt.value = "";
+      }
+    })
+
+    async function getModelResponse(prompt) {
+      document.querySelector(".preview-screen").style.display = "none";
+      document.querySelector(".hide-on").style.display = "none";
+      count += 1;
+
+      let quesDiv = document.createElement("div");
+      quesDiv.setAttribute("id", `ques-${count}`);
+      document.getElementById('response-block').appendChild(quesDiv);
+
+
+      let answerDiv = document.createElement("div");
+      answerDiv.setAttribute("id", `answer-${count}`);
+      document.getElementById('response-block').appendChild(answerDiv);
+
+      document.getElementById(`answer-${count}`).innerHTML = ` <div class="post">
+      <div class="line first"></div>
+      <div class="line second"></div>
+      <div class="line third"></div>
+      <div class="line fourth"></div>
+    </div>`;
+
+      let html = ` <div class="main-question-block">
+        <div class="each-response-block">
+          <p class="question-heading">${prompt}</p>
+        </div>
+      </div>`;
+
+      document.getElementById(`ques-${count}`).innerHTML = html;
+
+      document.querySelector(`#ques-${count}`).scrollIntoView({
+        behavior: 'smooth'
+      });
+
+
+      const result = await model.generateContent(prompt);
+
+
+      const response = result.response;
+      try {
+        const text = response.text();
+        if (!text) {
+          html = `
+          <div class="main-answer-block">
+          <div class="each-response-block">
+            <p class="question-content">I'm sorry, I didn't quite understand that. Could you please rephrase or provide more context?</p>
+          </div>
+          `;
+
+          return;
+        }
+        html = `
+      <div class="main-answer-block">
+      <div class="each-response-block">
+        <p class="question-content">${marked.parse(text)}</p>
+      </div>
+      `;
+
+      } catch (err) {
+        html = `
+      <div class="main-answer-block">
+      <div class="each-response-block">
+        <p class="question-content">I'm sorry, I didn't quite understand that. Could you please rephrase or provide more context?</p>
+      </div>
+      `;
+      }
+      document.getElementById(`answer-${count}`).innerHTML = html;
+      document.querySelector(`#answer-${count}`).scrollIntoView({
+        behavior: 'smooth'
+      });
+
+    }
+
+  </script>
+</body>
+
+</html>
